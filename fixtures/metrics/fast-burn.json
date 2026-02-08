@@ -1,0 +1,19 @@
+{
+  "scenario": "fast-burn",
+  "asOf": "2026-02-08T22:30:00Z",
+  "services": {
+    "checkout": {
+      "prod": {
+        "checkout-availability": {
+          "windows": {
+            "5m":  { "good": 9800,    "total": 10000 },
+            "1h":  { "good": 117600,  "total": 120000 },
+            "30m": { "good": 58800,   "total": 60000 },
+            "6h":  { "good": 705600,  "total": 720000 },
+            "30d": { "good": 25917440,"total": 25920000 }
+          }
+        }
+      }
+    }
+  }
+}
