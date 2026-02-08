@@ -1,0 +1,20 @@
+apiVersion: aegis.dev/v1
+kind: SLO
+metadata:
+  id: broken-slo
+  service: checkout
+spec:
+  environment: prod
+  complianceWindow: 30d
+  evaluationInterval: 30s
+  sli:
+    type: ratio
+    good:
+      prometheusQuery: "sum(rate(x[{{window}}]))"
+    total:
+      prometheusQuery: "sum(rate(y[{{window}}]))"
+  burnPolicy:
+    rules: []
+  gating:
+    minDataPoints: 1
+    stalenessLimit: 120s

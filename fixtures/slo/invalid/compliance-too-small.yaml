@@ -1,0 +1,24 @@
+apiVersion: aegis.dev/v1
+kind: SLO
+metadata:
+  id: compliance-too-small
+  service: checkout
+spec:
+  environment: prod
+  objective: 0.999
+  complianceWindow: 1h
+  evaluationInterval: 30s
+  sli:
+    type: ratio
+    good: { prometheusQuery: "sum(rate(good[{{window}}]))" }
+    total: { prometheusQuery: "sum(rate(total[{{window}}]))" }
+  burnPolicy:
+    rules:
+      - name: slow
+        shortWindow: 30m
+        longWindow: 6h
+        threshold: 6
+        action: BLOCK
+  gating:
+    minDataPoints: 1
+    stalenessLimit: 120s
