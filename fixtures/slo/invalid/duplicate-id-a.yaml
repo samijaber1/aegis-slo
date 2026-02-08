@@ -1,0 +1,24 @@
+apiVersion: aegis.dev/v1
+kind: SLO
+metadata:
+  id: dup-slo
+  service: checkout
+spec:
+  environment: prod
+  objective: 0.999
+  complianceWindow: 30d
+  evaluationInterval: 30s
+  sli:
+    type: ratio
+    good: { prometheusQuery: "sum(rate(good[{{window}}]))" }
+    total: { prometheusQuery: "sum(rate(total[{{window}}]))" }
+  burnPolicy:
+    rules:
+      - name: fast
+        shortWindow: 5m
+        longWindow: 1h
+        threshold: 14
+        action: BLOCK
+  gating:
+    minDataPoints: 1
+    stalenessLimit: 120s

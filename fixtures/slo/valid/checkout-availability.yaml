@@ -1,0 +1,30 @@
+apiVersion: aegis.dev/v1
+kind: SLO
+metadata:
+  id: checkout-availability
+  service: checkout
+  owner: sre
+  description: Checkout availability based on successful HTTP responses
+spec:
+  environment: prod
+  objective: 0.999
+  complianceWindow: 30d
+  evaluationInterval: 30s
+  sli:
+    type: ratio
+    good:
+      prometheusQuery: |
+        sum(rate(http_requests_total{service="checkout",env="prod",code=~"2..|3.."}[{{window}}]))
+    total:
+      prometheusQuery: |
+        sum(rate(http_requests_total{service="checkout",env="prod"}[{{window}}]))
+  burnPolicy:
+    rules:
+      - name: fast-burn
+        shortWindow: 5m
+        longWindow: 1h
+        threshold: 14
+        action: BLOCK
+  gating:
+    minDataPoints: 1
+    stalenessLimit: 120s
