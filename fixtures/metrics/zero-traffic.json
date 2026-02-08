@@ -1,0 +1,16 @@
+{
+  "windows": {
+    "5m": {
+      "good": 0,
+      "total": 0
+    },
+    "1h": {
+      "good": 0,
+      "total": 0
+    },
+    "30d": {
+      "good": 0,
+      "total": 0
+    }
+  }
+}

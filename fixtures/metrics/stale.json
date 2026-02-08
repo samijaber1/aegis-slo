@@ -1,0 +1,19 @@
+{
+  "windows": {
+    "5m": {
+      "good": 99950,
+      "total": 100000,
+      "dataTimestamp": "2020-01-01T00:00:00Z"
+    },
+    "1h": {
+      "good": 99950,
+      "total": 100000,
+      "dataTimestamp": "2020-01-01T00:00:00Z"
+    },
+    "30d": {
+      "good": 99950,
+      "total": 100000,
+      "dataTimestamp": "2020-01-01T00:00:00Z"
+    }
+  }
+}
