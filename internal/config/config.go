@@ -19,6 +19,9 @@ type Config struct {
 	PrometheusURL   string
 	SyntheticFixDir string
 
+	// Storage settings
+	DatabasePath string
+
 	// Operational settings
 	GracefulShutdownTimeout time.Duration
 }
@@ -50,6 +53,7 @@ func DefaultConfig() Config {
 		Port:                    8080,
 		Host:                    "0.0.0.0",
 		AdapterType:             "synthetic",
+		DatabasePath:            "aegis.db",
 		GracefulShutdownTimeout: 30 * time.Second,
 	}
 }

@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin
+/dist
+
+# Database files
+*.db
+*.db-journal
+
+# Documentation
+*.md
+!README.md
+
+# CI/CD
+.github
+
+# Docker
+Dockerfile*
+docker-compose*
+
+# Local development
+.env
+.env.local
+*.log
+
+# Claude artifacts
+.claude
