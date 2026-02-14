@@ -10,6 +10,7 @@ import (
 	"github.com/samijaber1/aegis-slo/internal/eval"
 	"github.com/samijaber1/aegis-slo/internal/policy"
 	"github.com/samijaber1/aegis-slo/internal/slo"
+	"github.com/samijaber1/aegis-slo/internal/storage"
 )
 
 // Scheduler manages periodic SLO evaluations
@@ -19,6 +20,7 @@ type Scheduler struct {
 	cache        *StateCache
 	sloDirectory string
 	slos         []slo.SLOWithFile
+	audit        storage.AuditStorage
 	cancel       context.CancelFunc
 	wg           sync.WaitGroup
 	mu           sync.RWMutex
@@ -33,6 +35,13 @@ func NewScheduler(evaluator *eval.Evaluator, policyEngine *policy.Engine, sloDir
 		cache:        NewStateCache(),
 		sloDirectory: sloDirectory,
 	}
+}
+
+// SetAuditStorage sets the audit storage backend (optional)
+func (s *Scheduler) SetAuditStorage(audit storage.AuditStorage) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.audit = audit
 }
 
 // LoadSLOs loads SLOs from the configured directory
@@ -59,7 +68,17 @@ func (s *Scheduler) LoadSLOs() error {
 
 	s.mu.Lock()
 	s.slos = sloFiles
+	audit := s.audit
 	s.mu.Unlock()
+
+	// Persist SLO definitions to audit storage if available
+	if audit != nil {
+		for _, sloWithFile := range sloFiles {
+			if err := audit.StoreSLODefinition(sloWithFile.SLO); err != nil {
+				log.Printf("Warning: failed to store SLO definition %s: %v", sloWithFile.SLO.Metadata.ID, err)
+			}
+		}
+	}
 
 	log.Printf("Loaded %d SLOs", len(sloFiles))
 	return nil
@@ -163,6 +182,23 @@ func (s *Scheduler) evaluateOnce(sloSpec *slo.SLO, interval time.Duration) {
 
 	s.cache.Set(sloSpec.Metadata.ID, state)
 
+	// Persist to audit storage if available
+	s.mu.RLock()
+	audit := s.audit
+	s.mu.RUnlock()
+
+	if audit != nil {
+		// Store evaluation record
+		if err := audit.StoreEvaluation(evalResult, gateResult); err != nil {
+			log.Printf("Warning: failed to store evaluation for SLO %s: %v", sloSpec.Metadata.ID, err)
+		}
+
+		// Update latest state
+		if err := audit.UpdateLatestState(sloSpec.Metadata.ID, evalResult, gateResult); err != nil {
+			log.Printf("Warning: failed to update latest state for SLO %s: %v", sloSpec.Metadata.ID, err)
+		}
+	}
+
 	log.Printf("Evaluated SLO %s: decision=%s, SLI=%.4f",
 		sloSpec.Metadata.ID, gateResult.Decision, evalResult.SLI.Value)
 }
@@ -170,6 +206,13 @@ func (s *Scheduler) evaluateOnce(sloSpec *slo.SLO, interval time.Duration) {
 // GetCache returns the state cache
 func (s *Scheduler) GetCache() *StateCache {
 	return s.cache
+}
+
+// GetAuditStorage returns the audit storage backend
+func (s *Scheduler) GetAuditStorage() storage.AuditStorage {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.audit
 }
 
 // GetSLOs returns the loaded SLOs

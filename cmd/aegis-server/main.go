@@ -16,6 +16,7 @@ import (
 	"github.com/samijaber1/aegis-slo/internal/eval"
 	"github.com/samijaber1/aegis-slo/internal/policy"
 	"github.com/samijaber1/aegis-slo/internal/scheduler"
+	"github.com/samijaber1/aegis-slo/internal/storage/sqlite"
 )
 
 func main() {
@@ -58,6 +59,20 @@ func main() {
 
 	// Create scheduler
 	sched := scheduler.NewScheduler(evaluator, policyEngine, cfg.SLODirectory)
+
+	// Initialize audit storage if database path is configured
+	var auditStorage *sqlite.Store
+	if cfg.DatabasePath != "" {
+		var err error
+		auditStorage, err = sqlite.NewStore(cfg.DatabasePath)
+		if err != nil {
+			log.Fatalf("Failed to initialize database: %v", err)
+		}
+		sched.SetAuditStorage(auditStorage)
+		log.Printf("Audit storage initialized: %s", cfg.DatabasePath)
+	} else {
+		log.Printf("Warning: No database configured, audit logging disabled")
+	}
 
 	// Load SLOs
 	if err := sched.LoadSLOs(); err != nil {
@@ -102,6 +117,14 @@ func main() {
 		log.Println("Stopping scheduler...")
 		sched.Stop()
 
+		// Close audit storage
+		if auditStorage != nil {
+			log.Println("Closing database...")
+			if err := auditStorage.Close(); err != nil {
+				log.Printf("Error closing database: %v", err)
+			}
+		}
+
 		log.Println("Shutdown complete")
 	}
 }
@@ -115,6 +138,7 @@ func parseFlags() config.Config {
 	flag.StringVar(&cfg.AdapterType, "adapter", cfg.AdapterType, "Metrics adapter type (prometheus|synthetic)")
 	flag.StringVar(&cfg.PrometheusURL, "prometheus-url", cfg.PrometheusURL, "Prometheus server URL (required for prometheus adapter)")
 	flag.StringVar(&cfg.SyntheticFixDir, "synthetic-fixtures", cfg.SyntheticFixDir, "Directory containing synthetic metric fixtures")
+	flag.StringVar(&cfg.DatabasePath, "db", cfg.DatabasePath, "SQLite database file path for audit logging")
 
 	flag.Parse()
 

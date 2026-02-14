@@ -3,6 +3,7 @@ module github.com/samijaber1/aegis-slo
 go 1.25.7
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.34 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

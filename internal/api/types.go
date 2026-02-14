@@ -74,3 +74,39 @@ type ReadyResponse struct {
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+// AuditQueryParams represents query parameters for audit endpoint
+type AuditQueryParams struct {
+	SLOID       string
+	Service     string
+	Environment string
+	Decision    string
+	StartTime   string
+	EndTime     string
+	Limit       int
+	Offset      int
+}
+
+// AuditResponse represents audit query response
+type AuditResponse struct {
+	Records []AuditRecordResponse `json:"records"`
+	Total   int                   `json:"total"`
+}
+
+// AuditRecordResponse represents a single audit record
+type AuditRecordResponse struct {
+	ID              int64                   `json:"id"`
+	SLOID           string                  `json:"sloID"`
+	Service         string                  `json:"service"`
+	Environment     string                  `json:"environment"`
+	Decision        string                  `json:"decision"`
+	SLI             float64                 `json:"sli"`
+	ErrorRate       float64                 `json:"errorRate"`
+	BudgetRemaining float64                 `json:"budgetRemaining"`
+	IsStale         bool                    `json:"isStale"`
+	HasNoTraffic    bool                    `json:"hasNoTraffic"`
+	Reasons         []string                `json:"reasons"`
+	BurnRates       map[string]BurnRateInfo `json:"burnRates"`
+	Timestamp       time.Time               `json:"timestamp"`
+	CreatedAt       time.Time               `json:"createdAt"`
+}

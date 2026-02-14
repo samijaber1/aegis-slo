@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/samijaber1/aegis-slo/internal/scheduler"
+	"github.com/samijaber1/aegis-slo/internal/storage"
 )
 
 // Server is the HTTP API server
@@ -39,6 +41,9 @@ func NewServer(sched *scheduler.Scheduler, addr string) *Server {
 
 	// Gate decision endpoint
 	mux.HandleFunc("/v1/gate/decision", s.handleGateDecision)
+
+	// Audit endpoint
+	mux.HandleFunc("/v1/audit", s.handleAudit)
 
 	s.server = &http.Server{
 		Addr:         addr,
@@ -278,6 +283,96 @@ func (s *Server) handleGateDecision(w http.ResponseWriter, r *http.Request) {
 		BurnRates:    burnRates,
 		IsStale:      state.GateResult.IsStale,
 		HasNoTraffic: state.GateResult.HasNoTraffic,
+	}
+
+	respondJSON(w, http.StatusOK, response)
+}
+
+// handleAudit handles GET /v1/audit
+func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get audit storage from scheduler
+	auditStorage := s.scheduler.GetAuditStorage()
+	if auditStorage == nil {
+		respondError(w, http.StatusServiceUnavailable, "audit storage not configured")
+		return
+	}
+
+	// Parse query parameters
+	query := r.URL.Query()
+	filter := storage.AuditFilter{
+		SLOID:       query.Get("sloID"),
+		Service:     query.Get("service"),
+		Environment: query.Get("environment"),
+		Decision:    query.Get("decision"),
+	}
+
+	if limitStr := query.Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			filter.Limit = limit
+		}
+	}
+
+	if offsetStr := query.Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			filter.Offset = offset
+		}
+	}
+
+	if startTimeStr := query.Get("startTime"); startTimeStr != "" {
+		if startTime, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+			filter.StartTime = &startTime
+		}
+	}
+
+	if endTimeStr := query.Get("endTime"); endTimeStr != "" {
+		if endTime, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
+			filter.EndTime = &endTime
+		}
+	}
+
+	// Query audit records
+	records, err := auditStorage.QueryAudit(filter)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to query audit: %v", err))
+		return
+	}
+
+	// Convert to response format
+	responseRecords := make([]AuditRecordResponse, len(records))
+	for i, record := range records {
+		burnRates := make(map[string]BurnRateInfo)
+		for window, br := range record.BurnRates {
+			burnRates[window] = BurnRateInfo{
+				BurnRate: br.BurnRate,
+			}
+		}
+
+		responseRecords[i] = AuditRecordResponse{
+			ID:              record.ID,
+			SLOID:           record.SLOID,
+			Service:         record.Service,
+			Environment:     record.Environment,
+			Decision:        record.Decision,
+			SLI:             record.SLI,
+			ErrorRate:       record.ErrorRate,
+			BudgetRemaining: record.BudgetRemaining,
+			IsStale:         record.IsStale,
+			HasNoTraffic:    record.HasNoTraffic,
+			Reasons:         record.Reasons,
+			BurnRates:       burnRates,
+			Timestamp:       record.Timestamp,
+			CreatedAt:       record.CreatedAt,
+		}
+	}
+
+	response := AuditResponse{
+		Records: responseRecords,
+		Total:   len(responseRecords),
 	}
 
 	respondJSON(w, http.StatusOK, response)
