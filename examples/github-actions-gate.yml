@@ -1,0 +1,64 @@
+name: Deploy with SLO Gate
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  slo-gate-check:
+    runs-on: ubuntu-latest
+    outputs:
+      decision: ${{ steps.gate.outputs.decision }}
+    steps:
+      - name: Check SLO Gate
+        id: gate
+        run: |
+          RESPONSE=$(curl -s -X POST https://aegis-slo.yourcompany.com/v1/gate/decision \
+            -H "Content-Type: application/json" \
+            -d '{"sloID": "api-availability"}')
+
+          DECISION=$(echo $RESPONSE | jq -r '.decision')
+          SLI=$(echo $RESPONSE | jq -r '.sli.value')
+          REASONS=$(echo $RESPONSE | jq -r '.reasons | join(", ")')
+
+          echo "decision=$DECISION" >> $GITHUB_OUTPUT
+          echo "sli=$SLI" >> $GITHUB_OUTPUT
+          echo "reasons=$REASONS" >> $GITHUB_OUTPUT
+
+          echo "### SLO Gate Decision: $DECISION" >> $GITHUB_STEP_SUMMARY
+          echo "- **SLI**: $SLI" >> $GITHUB_STEP_SUMMARY
+          echo "- **Reasons**: $REASONS" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$DECISION" = "BLOCK" ]; then
+            echo "::error::❌ SLO Gate BLOCKED - Current reliability below threshold"
+            exit 1
+          elif [ "$DECISION" = "WARN" ]; then
+            echo "::warning::⚠️ SLO Gate WARNING - Stale data or no traffic"
+          else
+            echo "::notice::✅ SLO Gate PASSED - Safe to deploy"
+          fi
+
+  deploy:
+    needs: slo-gate-check
+    runs-on: ubuntu-latest
+    # Only deploy if gate passed (ALLOW or WARN)
+    if: needs.slo-gate-check.outputs.decision != 'BLOCK'
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy Application
+        run: |
+          echo "Deploying to production..."
+          # Your deployment commands here
+
+      - name: Record Deployment in Audit
+        if: success()
+        run: |
+          # Optional: Query audit log to record deployment correlation
+          curl -s "https://aegis-slo.yourcompany.com/v1/audit?sloID=api-availability&limit=1" \
+            | jq '.records[0] | {decision, timestamp, sli}' \
+            > deployment-slo-snapshot.json
+
+          echo "SLO snapshot at deployment:"
+          cat deployment-slo-snapshot.json
